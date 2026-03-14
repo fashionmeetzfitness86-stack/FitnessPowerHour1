@@ -2,26 +2,363 @@
   "entities": {
     "UserProfile": {
       "title": "User Profile",
-      "description": "Stores user membership and profile information.",
+      "description": "Extended user information including membership status and administrative controls.",
       "type": "object",
       "properties": {
-        "id": { "type": "string", "description": "The user's unique ID (UID from Firebase Auth)." },
-        "name": { "type": "string", "description": "The user's full name." },
-        "email": { "type": "string", "format": "email", "description": "The user's email address." },
-        "tier": { "type": "string", "enum": ["Free Access", "Power Hour Member", "Elite Member", "Free", "Premium", "Elite"], "description": "The user's current membership tier." },
-        "joinedAt": { "type": "string", "format": "date-time", "description": "When the user joined the platform." },
-        "favorites": { "type": "array", "items": { "type": "string" }, "description": "List of favorited video IDs." },
-        "streak": { "type": "number", "description": "User's current workout streak." },
-        "workoutLogs": { "type": "array", "items": { "$ref": "WorkoutLog" }, "description": "History of logged workouts." },
-        "personalBests": { "type": "array", "items": { "$ref": "PersonalBest" }, "description": "User's personal best achievements." }
+        "id": { "type": "string" },
+        "full_name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "age": { "type": "number" },
+        "city": { "type": "string" },
+        "country": { "type": "string" },
+        "date_of_birth": { "type": "string" },
+        "signup_date": { "type": "string", "format": "date-time" },
+        "profile_image": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "admin", "super_admin", "athlete"] },
+        "package_id": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "suspended", "banned", "archived"] },
+        "banned_at": { "type": "string", "format": "date-time" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "name", "email", "tier", "joinedAt"]
+      "required": ["id", "full_name", "email", "role"]
+    },
+    "Package": {
+      "title": "Membership Package",
+      "description": "Defines access levels and limits for users.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "description": { "type": "string" },
+        "is_active": { "type": "boolean" },
+        "upload_limit": { "type": "number" },
+        "content_access_level": { "type": "string" },
+        "price": { "type": "number" },
+        "billing_type": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Athlete": {
+      "title": "Athlete/Trainer",
+      "description": "A trainer or athlete profile linked to a user profile.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "profile_id": { "type": "string" },
+        "full_name": { "type": "string" },
+        "age": { "type": "number" },
+        "city": { "type": "string" },
+        "specialty": { "type": "string" },
+        "responsibilities": { "type": "string" },
+        "training_focus": { "type": "string" },
+        "bio": { "type": "string" },
+        "image_url": { "type": "string" },
+        "is_active": { "type": "boolean" },
+        "is_banned": { "type": "boolean" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Video": {
+      "title": "Training Video",
+      "description": "A workout or educational video with visibility controls.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "thumbnail_url": { "type": "string" },
+        "video_url": { "type": "string" },
+        "duration": { "type": "string" },
+        "category_id": { "type": "string" },
+        "visibility_status": { "type": "string", "enum": ["published", "draft", "hidden", "archived"] },
+        "allowed_packages": { "type": "array", "items": { "type": "string" } },
+        "created_by": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "VideoCategory": {
+      "title": "Video Category",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
+    "UserVideoUpload": {
+      "title": "User Video Upload",
+      "description": "Videos uploaded by users to their profiles.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "video_url": { "type": "string" },
+        "thumbnail_url": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "uploaded_by": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Program": {
+      "title": "Training Program",
+      "description": "A structured training framework.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "video_ids": { "type": "array", "items": { "type": "string" } },
+        "created_by": { "type": "string" },
+        "status": { "type": "string", "enum": ["draft", "published", "archived"] },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "ProgramAssignment": {
+      "title": "Program Assignment",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "program_id": { "type": "string" },
+        "assigned_by": { "type": "string" },
+        "assigned_at": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["active", "completed", "dropped"] }
+      }
+    },
+    "Retreat": {
+      "title": "Retreat",
+      "description": "An exclusive retreat event.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "cover_image": { "type": "string" },
+        "start_date": { "type": "string", "format": "date" },
+        "end_date": { "type": "string", "format": "date" },
+        "location": { "type": "string" },
+        "visibility_status": { "type": "string", "enum": ["draft", "published", "hidden", "archived"] },
+        "access_type": { "type": "string", "enum": ["package_based", "manual"] },
+        "allowed_packages": { "type": "array", "items": { "type": "string" } },
+        "allowed_users": { "type": "array", "items": { "type": "string" } },
+        "preview_enabled": { "type": "boolean" },
+        "created_by": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Community": {
+      "title": "Community Group",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "image_url": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "hidden", "archived"] },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "CommunityPost": {
+      "title": "Community Post",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "community_id": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "image_url": { "type": "string" },
+        "created_by": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Brand": {
+      "title": "Ecosystem Brand",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "logo_url": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
+    "Product": {
+      "title": "Shop Product",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "brand_id": { "type": "string" },
+        "category_id": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "compare_at_price": { "type": "number" },
+        "sku": { "type": "string" },
+        "inventory_count": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "inactive", "archived"] },
+        "featured_image": { "type": "string" },
+        "images": { "type": "array", "items": { "type": "string" } },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "ProductCategory": {
+      "title": "Product Category",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
+    "Cart": {
+      "title": "User Cart",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "items": { "type": "array", "items": { "type": "object" } },
+        "status": { "type": "string" },
+        "updated_at": { "type": "string", "format": "date-time" },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Order": {
+      "title": "Shop Order",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "order_number": { "type": "string" },
+        "payment_status": { "type": "string", "enum": ["pending", "paid", "failed", "refunded"] },
+        "fulfillment_status": { "type": "string", "enum": ["pending", "processing", "shipped", "delivered", "cancelled"] },
+        "subtotal": { "type": "number" },
+        "shipping_amount": { "type": "number" },
+        "total_amount": { "type": "number" },
+        "shipping_address": { "type": "object" },
+        "billing_address": { "type": "object" },
+        "items": { "type": "array", "items": { "type": "object" } },
+        "placed_at": { "type": "string", "format": "date-time" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Notification": {
+      "title": "Notification",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "type": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "status": { "type": "string", "enum": ["sent", "read", "failed"] },
+        "send_at": { "type": "string", "format": "date-time" },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "ActivityLog": {
+      "title": "Activity Log",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "actor_id": { "type": "string" },
+        "entity_type": { "type": "string" },
+        "entity_id": { "type": "string" },
+        "action": { "type": "string" },
+        "metadata": { "type": "object" },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "UserProfile",
-      "description": "Individual user profile documents."
+      "description": "User profile documents."
+    },
+    "/packages/{packageId}": {
+      "schema": "Package",
+      "description": "Membership packages."
+    },
+    "/athletes/{athleteId}": {
+      "schema": "Athlete",
+      "description": "Athlete/Trainer profiles."
+    },
+    "/videos/{videoId}": {
+      "schema": "Video",
+      "description": "Central media library."
+    },
+    "/video_categories/{categoryId}": {
+      "schema": "VideoCategory",
+      "description": "Video categories."
+    },
+    "/user_video_uploads/{uploadId}": {
+      "schema": "UserVideoUpload",
+      "description": "User-uploaded videos."
+    },
+    "/programs/{programId}": {
+      "schema": "Program",
+      "description": "Training programs."
+    },
+    "/program_assignments/{assignmentId}": {
+      "schema": "ProgramAssignment",
+      "description": "User program assignments."
+    },
+    "/retreats/{retreatId}": {
+      "schema": "Retreat",
+      "description": "Retreat events."
+    },
+    "/communities/{communityId}": {
+      "schema": "Community",
+      "description": "Community groups."
+    },
+    "/community_posts/{postId}": {
+      "schema": "CommunityPost",
+      "description": "Posts within communities."
+    },
+    "/brands/{brandId}": {
+      "schema": "Brand",
+      "description": "Ecosystem brands."
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Shop products."
+    },
+    "/product_categories/{categoryId}": {
+      "schema": "ProductCategory",
+      "description": "Product categories."
+    },
+    "/carts/{cartId}": {
+      "schema": "Cart",
+      "description": "User shopping carts."
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Shop orders."
+    },
+    "/notifications/{notifId}": {
+      "schema": "Notification",
+      "description": "System notifications."
+    },
+    "/activity_logs/{logId}": {
+      "schema": "ActivityLog",
+      "description": "Admin activity logs."
     }
   }
 }

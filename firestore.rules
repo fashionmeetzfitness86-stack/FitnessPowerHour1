@@ -1,25 +1,59 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Fields: id, full_name, email, role, package_id, status, ...
+//
+// Collection: packages
+// Fields: id, name, price, upload_limit, ...
+//
+// Collection: athletes
+// Fields: id, profile_id, full_name, specialty, ...
+//
+// Collection: videos
+// Fields: id, title, video_url, visibility_status, allowed_packages, ...
+//
+// Collection: user_video_uploads
+// Fields: id, user_id, video_url, status, ...
+//
+// Collection: programs
+// Fields: id, title, video_ids, status, ...
+//
+// Collection: program_assignments
+// Fields: id, user_id, program_id, status, ...
+//
+// Collection: retreats
+// Fields: id, title, visibility_status, access_type, allowed_packages, ...
+//
+// Collection: communities
+// Fields: id, name, status, ...
+//
+// Collection: community_posts
+// Fields: id, community_id, content, created_by, ...
+//
+// Collection: brands
+// Fields: id, name, slug, ...
+//
+// Collection: products
+// Fields: id, brand_id, name, price, status, ...
+//
+// Collection: orders
+// Fields: id, user_id, total_amount, payment_status, fulfillment_status, ...
+//
+// Collection: activity_logs
+// Fields: id, actor_id, action, metadata, ...
+//
+// ===============================================================
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // ===============================================================
-    // Assumed Data Model
-    // ===============================================================
-    //
-    // Collection: users
-    // Document ID: {userId} (Firebase Auth UID)
-    // Fields:
-    //   - id: string (required) - The user's unique ID.
-    //   - name: string (required) - The user's full name.
-    //   - email: string (required, email format) - The user's email address.
-    //   - tier: string (required, enum) - The user's membership tier.
-    //   - joinedAt: string (required, ISO 8601) - When the user joined.
-    //
-    // ===============================================================
 
     // ===============================================================
     // Helper Functions
     // ===============================================================
-    
+
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -28,86 +62,168 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && (
+        (request.auth.token.email == "fashionmeetzfitness86@gmail.com" && request.auth.token.email_verified == true) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role == 'super_admin')
+      );
+    }
+
     function isAdmin() {
-      return isAuthenticated() &&
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-          (request.auth.token.email == "fashionmeetzfitness86@gmail.com" && request.auth.token.email_verified == true));
+      return isAuthenticated() && (
+        (request.auth.token.email == "fashionmeetzfitness86@gmail.com" && request.auth.token.email_verified == true) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (getUserData().role == 'admin' || getUserData().role == 'super_admin'))
+      );
     }
 
-    function isValidEmail(email) {
-      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    function isAthlete() {
+      return isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role == 'athlete';
     }
 
-    function isValidDateString(dateStr) {
-      return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
-    }
-
-    function hasOnlyAllowedFields(fields) {
-      return request.resource.data.keys().hasOnly(fields);
+    function isNotBanned() {
+      return !isAuthenticated() || 
+             !exists(/databases/$(database)/documents/users/$(request.auth.uid)) || 
+             getUserData().get('status', 'active') != 'banned';
     }
 
     // ===============================================================
-    // Domain Validators
+    // Validation Functions
     // ===============================================================
 
     function isValidUser(data) {
-      let allowedTiers = ['Free Access', 'Power Hour Member', 'Elite Member', 'Free', 'Premium', 'Elite', 'Basic', 'Local Collective'];
-      let allowedFields = ['id', 'name', 'email', 'tier', 'joinedAt', 'role', 'favorites', 'streak', 'workoutLogs', 'personalBests', 'orderHistory'];
-      return hasOnlyAllowedFields(allowedFields) &&
-             data.id is string && data.id == request.auth.uid &&
-             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
-             data.email is string && isValidEmail(data.email) &&
-             data.tier in allowedTiers &&
-             isValidDateString(data.joinedAt) &&
-             (!('favorites' in data) || data.favorites is list) &&
-             (!('streak' in data) || data.streak is number) &&
-             (!('workoutLogs' in data) || data.workoutLogs is list) &&
-             (!('personalBests' in data) || data.personalBests is list) &&
-             (!('orderHistory' in data) || data.orderHistory is list);
+      return data.full_name is string && data.full_name.size() > 0 && data.full_name.size() < 100 &&
+             data.email is string && data.role in ['user', 'admin', 'super_admin', 'athlete'];
     }
 
-    function isValidNotification(data) {
-      let allowedTypes = ['like', 'comment'];
-      return hasOnlyAllowedFields(['userId', 'type', 'fromUserId', 'fromUserName', 'postId', 'postContent', 'createdAt', 'isRead']) &&
-             data.userId is string &&
-             data.type in allowedTypes &&
-             data.fromUserId is string && data.fromUserId == request.auth.uid &&
-             data.fromUserName is string && data.fromUserName.size() > 0 &&
-             data.postId is string &&
-             data.postContent is string &&
-             isValidDateString(data.createdAt) &&
-             data.isRead is bool;
+    function isValidVideo(data) {
+      return data.title is string && data.video_url is string && 
+             data.visibility_status in ['published', 'draft', 'hidden', 'archived'];
     }
+
+    function isValidProduct(data) {
+      return data.name is string && data.price is number && data.price >= 0;
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
 
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      
-      allow create: if isAuthenticated() && 
-                      isValidUser(request.resource.data) && 
-                      isOwner(userId) &&
-                      (!('role' in request.resource.data) || request.resource.data.role == 'user');
-                      
-      allow update: if isAuthenticated() && 
-                      isValidUser(request.resource.data) && 
-                      isOwner(userId) &&
-                      (request.resource.data.role == resource.data.role || isAdmin()) &&
-                      request.resource.data.id == resource.data.id &&
-                      request.resource.data.email == resource.data.email &&
-                      request.resource.data.joinedAt == resource.data.joinedAt;
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data) && 
+                    (request.resource.data.role == 'user' || isSuperAdmin());
+      allow update: if isAuthenticated() && (
+        (isOwner(userId) && request.resource.data.role == resource.data.role && request.resource.data.status == resource.data.status) || 
+        isAdmin()
+      );
+      allow delete: if isSuperAdmin();
     }
 
-    match /notifications/{notificationId} {
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated() && isValidNotification(request.resource.data);
-      allow update: if isAuthenticated() && 
-                      resource.data.userId == request.auth.uid &&
-                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']) &&
-                      request.resource.data.isRead is bool;
+    match /packages/{packageId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
     }
 
-    // Default deny
-    match /{path=**} {
-      allow read, write: if false;
+    match /athletes/{athleteId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /videos/{videoId} {
+      allow read: if (resource.data.visibility_status == 'published') || (
+        isNotBanned() && (
+          isAdmin() ||
+          (isAuthenticated() && 
+           exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+           resource.data.allowed_packages.hasAny([getUserData().get('package_id', '')]))
+        )
+      );
+      allow write: if isAdmin();
+    }
+
+    match /video_categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /user_video_uploads/{uploadId} {
+      allow read: if isAuthenticated() && (isOwner(resource.data.user_id) || isAdmin());
+      allow create: if isAuthenticated() && isOwner(request.resource.data.user_id);
+      allow update: if isAuthenticated() && (isOwner(resource.data.user_id) || isAdmin());
+      allow delete: if isAuthenticated() && (isOwner(resource.data.user_id) || isAdmin());
+    }
+
+    match /programs/{programId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /program_assignments/{assignmentId} {
+      allow read: if isAuthenticated() && (isOwner(resource.data.user_id) || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    match /retreats/{retreatId} {
+      allow read: if (resource.data.visibility_status == 'published') || (
+        isNotBanned() && (
+          isAdmin() ||
+          (isAuthenticated() && (
+            (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && resource.data.allowed_packages.hasAny([getUserData().get('package_id', '')])) ||
+            resource.data.allowed_users.hasAny([request.auth.uid])
+          ))
+        )
+      );
+      allow write: if isAdmin();
+    }
+
+    match /communities/{communityId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /community_posts/{postId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && (isOwner(resource.data.created_by) || isAdmin());
+    }
+
+    match /brands/{brandId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /product_categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /carts/{cartId} {
+      allow read, write: if isAuthenticated() && isOwner(resource.data.user_id);
+    }
+
+    match /orders/{orderId} {
+      allow read: if isAuthenticated() && (isOwner(resource.data.user_id) || isAdmin());
+      allow create: if isAuthenticated() && isOwner(request.resource.data.user_id);
+      allow update: if isAdmin();
+    }
+
+    match /notifications/{notifId} {
+      allow read: if isAuthenticated() && isOwner(resource.data.user_id);
+      allow write: if isAdmin();
+    }
+
+    match /activity_logs/{logId} {
+      allow read: if isSuperAdmin();
+      allow create: if isAuthenticated();
     }
   }
 }
